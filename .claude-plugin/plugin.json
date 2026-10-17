@@ -1,6 +1,6 @@
 {
   "name": "memory-keeper",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "description": "Keeps the project's .claude/memory folder up to date on a timer and shows it in a live pane",
   "author": {
     "name": "Ayush Abrol",

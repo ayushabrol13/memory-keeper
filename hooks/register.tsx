@@ -85,8 +85,10 @@ const REDACTIONS: [RegExp, string][] = [
   ],
   // Credentials in URLs (scheme://user:pass@host) and key = value style assignments.
   [/(\b[a-z][a-z0-9+.-]*:\/\/)[^\s/:@]+:[^\s/@]+@/gi, '$1[redacted-credentials]@'],
+  // Starts at the keyword (no ambiguous prefix), so it runs in linear time on any input;
+  // quoted values are replaced whole, whatever their length.
   [
-    /\b([A-Za-z0-9_]{0,32}(?:secret|token|passw(?:or)?d|api[_-]?key|access[_-]?key|private[_-]?key)[A-Za-z0-9_]{0,32})([ \t]{0,4}[:=][ \t]{0,4})(["']?)[^\s"'`,;]{6,256}\3/gi,
+    /((?:secret|token|passw(?:or)?d|api[_-]?key|access[_-]?key|private[_-]?key)[A-Za-z0-9_]*)(\s*[:=]\s*)("[^"\n]*"|'[^'\n]*'|[^\s"'`,;]{6,})/gi,
     '$1$2[redacted]',
   ],
   [/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/g, '[redacted-email]'],
@@ -95,9 +97,11 @@ const REDACTIONS: [RegExp, string][] = [
 // Scrubs credential-, key- and email-shaped strings from model output before it is written to disk.
 const MAX_SUMMARY = 8000
 
-// Caps the length first so every pattern runs over bounded input.
-export const redact = (text: string) =>
-  REDACTIONS.reduce((out, [re, to]) => out.replace(re, to), text.slice(0, MAX_SUMMARY))
+// Caps the length, dropping the word the cut lands in so no partial secret survives, then redacts.
+export const redact = (text: string) => {
+  const capped = text.length > MAX_SUMMARY ? text.slice(0, MAX_SUMMARY).replace(/\S*$/, '') : text
+  return REDACTIONS.reduce((out, [re, to]) => out.replace(re, to), capped)
+}
 
 // Where a path lands: the nearest existing ancestor's real path (symlinks resolved) plus the rest.
 const placed = async ($: EngineInterface, path: string) => {

@@ -43,3 +43,12 @@ test('redacts URL credentials, secret assignments, JWTs and unterminated keys', 
       '[redacted-key]',
   )
 })
+
+test('redacts long and quoted values whole, and never keeps a cut-off word', () => {
+  const long = 'x'.repeat(400)
+  expect(redact(`MY_VERY_LONG_SERVICE_NAME_ACCESS_TOKEN=${long} done`)).toBe(
+    'MY_VERY_LONG_SERVICE_NAME_ACCESS_TOKEN=[redacted] done',
+  )
+  expect(redact(`password = "${long} with spaces"`)).toBe('password = [redacted]')
+  expect(redact(`${'a '.repeat(3999)}ghp_${'b'.repeat(36)}`).endsWith('a ')).toBe(true)
+})

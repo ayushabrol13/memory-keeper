@@ -4,6 +4,12 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [0.2.4] - 2026-10-17
+
+### Security
+- Secret-assignment redaction now starts at the keyword and runs in linear time without length caps, so long key names and long or quoted values are replaced whole.
+- Truncation drops the word the cut lands in before redacting, so no partial secret survives.
+
 ## [0.2.3] - 2026-10-17
 
 ### Security

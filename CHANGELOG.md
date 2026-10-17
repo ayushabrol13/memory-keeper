@@ -4,6 +4,12 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [0.2.2] - 2026-10-17
+
+### Security
+- Writes are anchored to the project root: a symlinked `.claude/` or `.claude/memory/` folder is now refused, not only symlinked files.
+- Summary redaction covers more formats: JWTs, GitLab, npm, Stripe, Google and AWS session keys, Slack tokens, credentials in URLs, `key = value` style secret assignments, and PEM keys missing their END marker.
+
 ## [0.2.1] - 2026-10-17
 
 ### Security

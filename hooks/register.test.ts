@@ -30,3 +30,16 @@ test('leaves ordinary summary text unchanged', () => {
 
   expect(redact(text)).toBe(text)
 })
+
+test('redacts URL credentials, secret assignments, JWTs and unterminated keys', () => {
+  const jwt = 'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTYifQ.c2lnbmF0dXJlMTIz'
+  const out = redact(
+    `db at postgres://admin:hunter22@db.local/app, API_KEY=abcd1234efgh, token: "zzzz9999", ${jwt}\n` +
+      '-----BEGIN PRIVATE KEY-----\nMIIEvQ',
+  )
+
+  expect(out).toBe(
+    'db at postgres://[redacted-credentials]@db.local/app, API_KEY=[redacted], token: [redacted], [redacted-jwt]\n' +
+      '[redacted-key]',
+  )
+})

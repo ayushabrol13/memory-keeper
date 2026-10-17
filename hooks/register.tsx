@@ -61,15 +61,38 @@ export const replaceBlock = (text: string, name: string, body: string) => {
 }
 
 const REDACTIONS: [RegExp, string][] = [
-  [/-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*?-----END [A-Z ]*PRIVATE KEY-----/g, '[redacted-key]'],
+  // A PEM private key up to its END marker, or to the end of the text when the marker is missing.
+  [/-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*?(?:-----END [A-Z ]*PRIVATE KEY-----|$)/g, '[redacted-key]'],
+  [/\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}/g, '[redacted-jwt]'],
   [
-    /\b(gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|sk-[A-Za-z0-9_-]{20,}|xox[abprs]-[A-Za-z0-9-]{10,}|AKIA[0-9A-Z]{16})\b/g,
+    new RegExp(
+      '\\b(' +
+        [
+          'gh[pousr]_[A-Za-z0-9]{20,}',
+          'github_pat_[A-Za-z0-9_]{20,}',
+          'glpat-[A-Za-z0-9_-]{20,}',
+          'npm_[A-Za-z0-9]{36}',
+          'sk-[A-Za-z0-9_-]{20,}',
+          '[sr]k_(?:live|test)_[A-Za-z0-9]{16,}',
+          'xox[a-z]-[A-Za-z0-9-]{10,}',
+          'AIza[A-Za-z0-9_-]{35}',
+          '(?:AKIA|ASIA)[0-9A-Z]{16}',
+        ].join('|') +
+        ')',
+      'g',
+    ),
     '[redacted-token]',
+  ],
+  // Credentials in URLs (scheme://user:pass@host) and key = value style assignments.
+  [/(\b[a-z][a-z0-9+.-]*:\/\/)[^\s/:@]+:[^\s/@]+@/gi, '$1[redacted-credentials]@'],
+  [
+    /\b([A-Za-z0-9_-]*(?:secret|token|passw(?:or)?d|api[_-]?key|access[_-]?key|private[_-]?key)[A-Za-z0-9_-]*)(\s*[:=]\s*)(["']?)[^\s"'`,;]{6,}\3/gi,
+    '$1$2[redacted]',
   ],
   [/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/g, '[redacted-email]'],
 ]
 
-// Scrubs token-, key- and email-shaped strings from model output before it is written to disk.
+// Scrubs credential-, key- and email-shaped strings from model output before it is written to disk.
 export const redact = (text: string) => REDACTIONS.reduce((out, [re, to]) => out.replace(re, to), text)
 
 // Where a path lands: the nearest existing ancestor's real path (symlinks resolved) plus the rest.
@@ -87,10 +110,16 @@ const placed = async ($: EngineInterface, path: string) => {
 }
 
 // Writes only when the path resolves inside `root`, so a symlink can't redirect a write elsewhere.
+// The project root is the trust anchor: `root` must resolve to exactly its spelled place under it,
+// so a symlinked `.claude` or `memory` folder is refused too.
 const safeWrite = async ($: EngineInterface, root: string, path: string, text: string) => {
+  const project = await $.session.root()
+  const realProject = await placed($, project)
   const realRoot = await placed($, root)
   const real = await placed($, path)
-  if (!realRoot || !real?.startsWith(`${realRoot}/`)) {
+  const isAnchored =
+    realProject !== undefined && root.startsWith(`${project}/`) && realRoot === realProject + root.slice(project.length)
+  if (!isAnchored || !real?.startsWith(`${realRoot}/`)) {
     throw new Error(`memory-keeper: refused to write ${path}: it resolves outside ${root}`)
   }
 

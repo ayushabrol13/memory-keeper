@@ -60,6 +60,49 @@ export const replaceBlock = (text: string, name: string, body: string) => {
     : `${text.trimEnd()}\n\n${block}\n`
 }
 
+const REDACTIONS: [RegExp, string][] = [
+  [/-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*?-----END [A-Z ]*PRIVATE KEY-----/g, '[redacted-key]'],
+  [
+    /\b(gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|sk-[A-Za-z0-9_-]{20,}|xox[abprs]-[A-Za-z0-9-]{10,}|AKIA[0-9A-Z]{16})\b/g,
+    '[redacted-token]',
+  ],
+  [/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/g, '[redacted-email]'],
+]
+
+// Scrubs token-, key- and email-shaped strings from model output before it is written to disk.
+export const redact = (text: string) => REDACTIONS.reduce((out, [re, to]) => out.replace(re, to), text)
+
+// Where a path lands: the nearest existing ancestor's real path (symlinks resolved) plus the rest.
+const placed = async ($: EngineInterface, path: string) => {
+  let head = path
+  let rest = ''
+  for (;;) {
+    const stat = await $.fs.stat(head, { resolve: true }).catch(() => undefined)
+    if (stat?.realPath) return stat.realPath.replace(/\/$/, '') + rest
+    const cut = head.lastIndexOf('/')
+    if (cut <= 0) return undefined
+    rest = head.slice(cut) + rest
+    head = head.slice(0, cut)
+  }
+}
+
+// Writes only when the path resolves inside `root`, so a symlink can't redirect a write elsewhere.
+const safeWrite = async ($: EngineInterface, root: string, path: string, text: string) => {
+  const realRoot = await placed($, root)
+  const real = await placed($, path)
+  if (!realRoot || !real?.startsWith(`${realRoot}/`)) {
+    throw new Error(`memory-keeper: refused to write ${path}: it resolves outside ${root}`)
+  }
+
+  const cut = real.lastIndexOf('/')
+  const entries = await $.fs.list(real.slice(0, cut)).catch(() => [])
+  if (entries.some(f => f.name === real.slice(cut + 1) && f.isLink)) {
+    throw new Error(`memory-keeper: refused to write ${path}: it is a symbolic link`)
+  }
+
+  await $.fs.write(real, text)
+}
+
 const readText = ($: EngineInterface, path: string) =>
   $.fs.read(path).then(
     text => (typeof text === 'string' ? text : ''),
@@ -107,7 +150,10 @@ const sessionFile = async ($: EngineInterface, root: string, id: string, now: nu
 
 const activityBlock = (act: Activity, turns: number, now: number, projectRoot: string) => {
   const rel = (p: string) => (p.startsWith(`${projectRoot}/`) ? p.slice(projectRoot.length + 1) : p)
-  const files = act.edited.slice(-20).map(p => `- \`${rel(p)}\``)
+  const files = act.edited
+    .filter(p => p.startsWith(`${projectRoot}/`))
+    .slice(-20)
+    .map(p => `- \`${rel(p)}\``)
 
   return [
     '## Auto activity',
@@ -142,7 +188,7 @@ const rebuildIndex = async ($: EngineInterface, snap: Snapshot) => {
   )
 
   const next = `# Memory index\n\n${sections.join('\n\n')}\n`
-  if (next !== old) await $.fs.write(path, next)
+  if (next !== old) await safeWrite($, snap.root, path, next)
 }
 
 // Module state starts over on a reload; the next sync then summarizes again.
@@ -167,14 +213,14 @@ const sync = async ($: EngineInterface, opts: PluginOptions, isForced: boolean) 
     if (wantsSummary && turns > 0) {
       const reply = await $.model.fork({ prompt: SUMMARY_PROMPT })
       if (reply.isAnswered) {
-        summary = reply.text.trim()
+        summary = redact(reply.text.trim())
         summarizedAtTurn = turns
         text = replaceBlock(text, 'summary', `## Auto summary\n\n${summary}`)
       }
     }
 
     text = replaceBlock(text, 'activity', activityBlock(await read($, activity), turns, now, projectRoot))
-    await $.fs.write(file.path, text)
+    await safeWrite($, snap.root, file.path, text)
     await rebuildIndex($, (await scan($)) ?? snap)
     await scan($)
 
@@ -220,7 +266,7 @@ const init = async ($: EngineInterface) => {
 
   for (const [rel, text] of files) {
     if (await $.fs.exists(`${claudeDir}/${rel}`)) continue
-    await $.fs.write(`${claudeDir}/${rel}`, text)
+    await safeWrite($, claudeDir, `${claudeDir}/${rel}`, text)
     created.push(rel)
   }
   await scan($)

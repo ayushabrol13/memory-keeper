@@ -4,6 +4,13 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [0.2.1] - 2026-10-17
+
+### Security
+- Writes now resolve symbolic links and are refused unless the target lies inside `.claude/` (or `.claude/memory/` for syncs), and never through a symlinked file.
+- Model-written summaries are scrubbed of token-, private-key- and email-shaped strings before being saved.
+- The activity log no longer records edited files outside the project.
+
 ## [0.2.0] - 2026-10-17
 
 ### Added

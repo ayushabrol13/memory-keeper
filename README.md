@@ -1,6 +1,6 @@
 # memory-keeper
 
-[![Version](https://img.shields.io/badge/version-0.2.0-blue)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-0.2.1-blue)](CHANGELOG.md)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![Claude Code](https://img.shields.io/badge/Claude%20Code-%E2%89%A5%202.1.290-orange)](https://claude.com/claude-code)
 
@@ -159,9 +159,9 @@ _Last synced 2026-10-17 13:38 · 19 user turns · 48 tool calls · 12 shell comm
 
 ## Privacy and cost
 
-- **Local only.** All files are written to your project's `.claude/` folder. Nothing is sent anywhere except the summary request below.
+- **Local only.** All files are written to your project's `.claude/` folder; writes that would resolve outside it (for example through a symbolic link) are refused. Nothing is sent anywhere except the summary request below.
 - **Summaries use your Claude session.** Each summary is one extra model request over the conversation, served largely from the prompt cache. It runs only when new prompts have arrived since the last summary. Set `summarize` to `false` or raise `intervalMinutes` to reduce usage.
-- **Sensitive data.** The summary prompt instructs the model to omit secrets, credentials, personal data and source code. Review memory files before committing them, and consider adding `.claude/memory/sessions/` to `.gitignore` for private projects.
+- **Sensitive data.** The summary prompt instructs the model to omit secrets, credentials, personal data and source code, and the reply is scrubbed of token-, private-key- and email-shaped strings before it is saved. Only files inside the project appear in the activity log. Review memory files before committing them, and consider adding `.claude/memory/sessions/` to `.gitignore` for private projects.
 
 ## Troubleshooting
 

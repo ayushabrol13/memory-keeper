@@ -1,0 +1,5 @@
+{
+  "name": "memory-keeper",
+  "owner": { "name": "Ayush Abrol" },
+  "plugins": [{ "name": "memory-keeper", "source": "./" }]
+}

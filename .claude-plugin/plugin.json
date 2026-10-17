@@ -1,0 +1,34 @@
+{
+  "name": "memory-keeper",
+  "version": "0.2.0",
+  "description": "Keeps the project's .claude/memory folder up to date on a timer and shows it in a live pane",
+  "author": {
+    "name": "Ayush Abrol",
+    "url": "https://github.com/ayushabrol13"
+  },
+  "homepage": "https://github.com/ayushabrol13/memory-keeper",
+  "repository": "https://github.com/ayushabrol13/memory-keeper",
+  "license": "MIT",
+  "keywords": [
+    "memory",
+    "claude-code",
+    "pane",
+    "session-notes",
+    "productivity"
+  ],
+  "types": "./types/index.d.ts",
+  "userConfig": {
+    "intervalMinutes": {
+      "type": "number",
+      "title": "Sync interval (minutes)",
+      "description": "How often memory-keeper syncs .claude/memory",
+      "default": 10
+    },
+    "summarize": {
+      "type": "boolean",
+      "title": "Auto-summarize session",
+      "description": "On each sync with new turns, ask the model for a short session summary and write it to the session file",
+      "default": true
+    }
+  }
+}
